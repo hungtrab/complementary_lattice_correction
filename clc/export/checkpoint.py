@@ -411,5 +411,8 @@ def export_checkpoint(
         **pack_kwargs,
     )
     (output_dir / "config.json").write_text(json.dumps(config, indent=2))
+    from clc.deployment import write_deployment_manifest
+
+    write_deployment_manifest(output_dir, fmt, bits, group_size)
 
     return output_dir

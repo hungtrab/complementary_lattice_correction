@@ -6,6 +6,7 @@ lattice, the architecture and the inference graph unchanged.
 """
 
 from clc.correction import CorrectionConfig, CorrectionStats, LatticeCorrection
+from clc.deployment import ENGINE_SPECS, inspect_checkpoint
 from clc.estimators import james_stein_mean, knee_threshold, pooled_activation_variance
 from clc.lattice import LatticeState
 from clc.pipeline import PipelineConfig, PipelineResult, QuantizationPipeline
@@ -16,6 +17,7 @@ __all__ = [
     "ActivationStatistics",
     "CorrectionConfig",
     "CorrectionStats",
+    "ENGINE_SPECS",
     "LatticeCorrection",
     "LatticeState",
     "PipelineConfig",
@@ -23,6 +25,7 @@ __all__ = [
     "QuantConfig",
     "QuantizationPipeline",
     "QuantizedLayer",
+    "inspect_checkpoint",
     "james_stein_mean",
     "knee_threshold",
     "pooled_activation_variance",

@@ -162,6 +162,19 @@ CLC ghi ra thư mục checkpoint packed thay vì fake-quantized float weights.
 Output bao gồm architecture config gốc của Hugging Face, quantization
 metadata, tokenizer và generation config nếu các file này có sẵn.
 
+Có thể kiểm tra artifact trước khi serve:
+
+~~~bash
+clc engines
+clc inspect --checkpoint ./out/qwen-w4-clc --engine sglang
+~~~
+
+Hướng dẫn chi tiết theo từng engine nằm trong
+[docs/engines.md](docs/engines.md). Repository có sẵn launch wrapper cho
+vLLM, SGLang, TGI và LMDeploy; sidecar
+<code>deployment.json</code> tự sinh sẽ ghi rõ engine nào load trực tiếp và
+engine nào cần conversion.
+
 ### vLLM
 
 ~~~bash
@@ -187,6 +200,30 @@ result = llm.generate(
 )
 print(result[0].outputs[0].text)
 ~~~
+
+### Các engine khác
+
+Format packed AWQ/GPTQ cũng dùng được với SGLang, Hugging Face Text Generation
+Inference, LMDeploy và Transformers, tùy backend, GPU và bit width mà engine
+đó hỗ trợ:
+
+~~~bash
+# SGLang
+scripts/serve/sglang.sh ./out/qwen-w4-clc --host 0.0.0.0 --port 30000
+
+# Hugging Face TGI
+scripts/serve/tgi.sh ./out/qwen-w4-clc --hostname 0.0.0.0 --port 8080
+
+# LMDeploy TurboMind
+scripts/serve/lmdeploy.sh ./out/qwen-w4-clc --server-port 23333
+
+# Transformers
+python examples/transformers_generate.py --model ./out/qwen-w4-clc
+~~~
+
+TensorRT-LLM có conversion/build path cho W4A16 AWQ/GPTQ. llama.cpp và Ollama
+dùng GGUF nên hiện được đánh dấu là conversion target, không phải direct
+consumer; việc re-quantize sang GGUF sẽ không còn giữ nguyên CLC lattice.
 
 ### Ma trận format
 
@@ -290,7 +327,10 @@ clc/
   export/          AWQ, GPTQ, WNA16 packing và legacy conversion
   theory/          Appendix E.1 verification và self-test
   eval/            Perplexity và lm-evaluation-harness
-scripts/bash/      Run và sweep wrappers để tái lập
+scripts/bash/      Run và sweep wrappers để tái lập quantization
+scripts/serve/     Launch wrapper cho vLLM, SGLang, TGI và LMDeploy
+examples/          Ví dụ generation với Transformers
+docs/              Ghi chú interoperability theo engine
 tests/             Unit, regression, interoperability và theory tests
 ~~~
 

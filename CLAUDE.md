@@ -77,3 +77,11 @@ Hugging Face config when the source is a remote model id; the CLI passes
 only a quantization block. A legacy fake-quantized directory can only be
 reprojected, via `convert-legacy-awq`; it cannot recover the discarded original
 integer lattice exactly.
+
+The clc/deployment.py module is the single compatibility registry for inference
+engines. It distinguishes direct checkpoint loading from engine-specific
+conversion and writes deployment.json alongside every packed export. Keep this
+registry conservative: vLLM, SGLang, TGI, LMDeploy, and Transformers do not
+share the same bit-width matrix, while TensorRT-LLM needs an engine build step
+and llama.cpp/Ollama need GGUF. The wrappers in scripts/serve/ should mirror
+the registry's commands and must not silently re-quantize a CLC checkpoint.

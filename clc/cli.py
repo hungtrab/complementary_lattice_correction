@@ -233,6 +233,38 @@ def run_legacy_conversion(args) -> int:
     return 0
 
 
+def run_engines(args) -> int:
+    from clc.deployment import format_engine_table
+
+    print(format_engine_table(fmt=args.format, bits=args.bits))
+    return 0
+
+
+def run_inspect(args) -> int:
+    from clc.deployment import ENGINE_BY_NAME, inspect_checkpoint, render_launch_command
+
+    info = inspect_checkpoint(args.checkpoint)
+    print(json.dumps(info.to_dict(), indent=2))
+    if args.engine is not None:
+        spec = ENGINE_BY_NAME[args.engine]
+        status = spec.status(info.format, info.bits)
+        print(f"\n{spec.label}: {status}")
+        if status == "direct":
+            print(
+                render_launch_command(
+                    args.engine,
+                    info.path,
+                    info.format,
+                    info.bits,
+                    extra_args=args.extra_arg,
+                )
+            )
+        else:
+            print(f"Documentation: {spec.documentation}")
+            print(f"Notes: {spec.notes}")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="clc", description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -275,6 +307,43 @@ def main(argv=None) -> int:
     )
 
     convert.set_defaults(func=run_legacy_conversion)
+
+    engines = subparsers.add_parser(
+        "engines",
+        help="show deployment-engine compatibility for each packed format",
+    )
+    engines.add_argument(
+        "--format",
+        choices=["awq", "gptq", "compressed-tensors"],
+        help="show only engines relevant to one format",
+    )
+    engines.add_argument("--bits", type=int, choices=[2, 3, 4, 8])
+    engines.set_defaults(func=run_engines)
+
+    inspect = subparsers.add_parser(
+        "inspect",
+        help="inspect an exported checkpoint and print engine launch guidance",
+    )
+    inspect.add_argument("--checkpoint", required=True)
+    inspect.add_argument(
+        "--engine",
+        choices=[
+            "vllm",
+            "sglang",
+            "tgi",
+            "lmdeploy",
+            "transformers",
+            "tensorrt-llm",
+            "llama.cpp",
+        ],
+    )
+    inspect.add_argument(
+        "--extra-arg",
+        action="append",
+        default=[],
+        help="append an engine argument; repeat for multiple arguments",
+    )
+    inspect.set_defaults(func=run_inspect)
 
     verify = subparsers.add_parser("verify", help="check the analysis on synthetic layers")
     verify.set_defaults(func=run_verify)

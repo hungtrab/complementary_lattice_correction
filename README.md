@@ -168,6 +168,19 @@ float weights. The output includes the original Hugging Face architecture
 configuration, quantization metadata, tokenizer files, and generation
 configuration when available.
 
+The same artifact can be inspected before serving:
+
+~~~bash
+clc engines
+clc inspect --checkpoint ./out/qwen-w4-clc --engine sglang
+~~~
+
+Detailed engine-specific instructions are in
+[docs/engines.md](docs/engines.md). The repository includes launch wrappers
+for vLLM, SGLang, TGI, and LMDeploy; the generated
+<code>deployment.json</code> sidecar records direct-load and
+conversion-required paths.
+
 ### vLLM
 
 ~~~bash
@@ -193,6 +206,31 @@ result = llm.generate(
 )
 print(result[0].outputs[0].text)
 ~~~
+
+### Other engines
+
+The packed AWQ/GPTQ formats are also usable by SGLang, Hugging Face Text
+Generation Inference, LMDeploy, and Transformers, subject to each engine's
+backend and hardware matrix:
+
+~~~bash
+# SGLang
+scripts/serve/sglang.sh ./out/qwen-w4-clc --host 0.0.0.0 --port 30000
+
+# Hugging Face TGI
+scripts/serve/tgi.sh ./out/qwen-w4-clc --hostname 0.0.0.0 --port 8080
+
+# LMDeploy TurboMind
+scripts/serve/lmdeploy.sh ./out/qwen-w4-clc --server-port 23333
+
+# Transformers
+python examples/transformers_generate.py --model ./out/qwen-w4-clc
+~~~
+
+TensorRT-LLM has a conversion/build path for W4A16 AWQ/GPTQ. llama.cpp and
+Ollama require GGUF and are intentionally marked as conversion targets rather
+than direct consumers; re-quantizing into GGUF would no longer be the exact
+CLC lattice exported here.
 
 ### Format matrix
 
@@ -348,7 +386,10 @@ clc/
   export/          AWQ, GPTQ, WNA16 packing, and legacy conversion
   theory/          Appendix E.1 verification and self-test
   eval/            Perplexity and lm-evaluation-harness
-scripts/bash/      Reproducible run and sweep wrappers
+scripts/bash/      Reproducible quantization run and sweep wrappers
+scripts/serve/     vLLM, SGLang, TGI, and LMDeploy launch wrappers
+examples/          Transformers generation example
+docs/              Engine interoperability notes
 tests/             Unit, regression, interoperability, and theory tests
 ~~~
 

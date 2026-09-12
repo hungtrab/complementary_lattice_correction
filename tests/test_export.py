@@ -146,6 +146,9 @@ def test_export_writes_weights_config_and_is_reloadable(tmp_path):
     assert config["quantization_config"]["quant_method"] == "awq"
     assert config["quantization_config"]["bits"] == 4
     assert config["quantization_config"]["group_size"] == 128
+    deployment = json.loads((out / "deployment.json").read_text())
+    assert deployment["format"] == "awq"
+    assert deployment["engines"]["vllm"]["status"] == "direct"
 
 
 def test_export_carries_unquantized_tensors_through(tmp_path):
