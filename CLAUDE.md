@@ -70,13 +70,21 @@ lattice. `PipelineResult.exportable` tracks this and `notes` says why not. Never
 "fix" a non-exportable case by re-quantizing the dequantized weight — that
 reintroduces the round-trip error the direct packing exists to avoid.
 
-The supported deployment formats are AWQ (4-bit), GPTQ (2/3/4/8-bit), and
-compressed-tensors WNA16 (4/8-bit). `export_checkpoint` also needs the loaded
-Hugging Face config when the source is a remote model id; the CLI passes
+The supported direct deployment formats are AWQ (4-bit), GPTQ (2/3/4/8-bit),
+and compressed-tensors WNA16 (4/8-bit). `export_checkpoint` also needs the
+loaded Hugging Face config when the source is a remote model id; the CLI passes
 `model.config.to_dict()` so the output remains loadable instead of containing
 only a quantization block. A legacy fake-quantized directory can only be
 reprojected, via `convert-legacy-awq`; it cannot recover the discarded original
 integer lattice exactly.
+
+`clc convert-gguf` is a separate, explicitly lossy interoperability bridge. It
+accepts a normal Hugging Face safetensors directory or dequantizes a packed CLC
+AWQ/GPTQ/compressed-tensors directory in a temporary directory, then invokes
+the official llama.cpp `convert_hf_to_gguf.py` and `llama-quantize` tools. It
+must never be described as a lattice-preserving exporter; the command writes a
+`*.gguf.clc.json` provenance sidecar. The original packed checkpoint remains
+the exact CLC artifact.
 
 The clc/deployment.py module is the single compatibility registry for inference
 engines. It distinguishes direct checkpoint loading from engine-specific
@@ -84,4 +92,5 @@ conversion and writes deployment.json alongside every packed export. Keep this
 registry conservative: vLLM, SGLang, TGI, LMDeploy, and Transformers do not
 share the same bit-width matrix, while TensorRT-LLM needs an engine build step
 and llama.cpp/Ollama need GGUF. The wrappers in scripts/serve/ should mirror
-the registry's commands and must not silently re-quantize a CLC checkpoint.
+the registry's commands. `llama-cli.sh` may only launch a GGUF; conversion and
+any downstream re-quantization must remain explicit in `convert-gguf`.

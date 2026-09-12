@@ -114,7 +114,7 @@ def test_manifest_contains_direct_and_conversion_statuses():
     assert manifest["engines"]["vllm"]["status"] == "direct"
     assert manifest["engines"]["tgi"]["status"] == "direct"
     assert manifest["engines"]["tensorrt-llm"]["status"] == "conversion"
-    assert manifest["engines"]["llama.cpp"]["status"] == "unsupported"
+    assert manifest["engines"]["llama.cpp"]["status"] == "conversion"
 
 
 def test_manifest_is_written_next_to_checkpoint(tmp_path):

@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="assets/clc-banner.svg" alt="Complementary Lattice Correction tương thích với vLLM, SGLang, TGI, LMDeploy và Hugging Face Transformers" width="100%">
+  <img src="assets/clc-banner.svg" alt="Complementary Lattice Correction tương thích với vLLM, SGLang, TGI, LMDeploy, Hugging Face Transformers, TensorRT-LLM, llama.cpp và Ollama" width="100%">
 </p>
 
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+"></a>
   <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-2.x-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch 2.x"></a>
   <a href="https://github.com/vllm-project/vllm"><img src="https://img.shields.io/badge/vLLM-compatible-7C3AED?logo=nvidia&logoColor=white" alt="Tương thích vLLM"></a>
-  <a href="https://github.com/hungtrab/complementary_lattice_correction/actions"><img src="https://img.shields.io/badge/tests-157%20passing-16A34A" alt="157 tests passing"></a>
+  <a href="https://github.com/hungtrab/complementary_lattice_correction/actions"><img src="https://img.shields.io/badge/tests-172%20passing-16A34A" alt="172 tests passing"></a>
 </p>
 
 <p align="center">
@@ -76,6 +76,9 @@ dùng được cùng low-bit kernel.
 - **Export để triển khai:** lattice sau hiệu chỉnh được pack trực tiếp thành
   checkpoint AWQ, GPTQ hoặc compressed-tensors WNA16. Exporter kiểm tra code,
   zero point và float16 scale trước khi ghi file.
+- **Cầu nối GGUF:** `clc convert-gguf` nhận thư mục Hugging Face có
+  safetensors chuẩn, hoặc giải mã checkpoint packed của project ra một thư mục
+  HF tạm trước khi gọi converter và quantizer chính thức của llama.cpp.
 - **Đánh giá và phân tích:** perplexity trên WikiText-2/C4, task của
   lm-evaluation-harness, theory verifier theo Appendix E.1 và synthetic
   self-test.
@@ -171,7 +174,7 @@ clc inspect --checkpoint ./out/qwen-w4-clc --engine sglang
 
 Hướng dẫn chi tiết theo từng engine nằm trong
 [docs/engines.md](docs/engines.md). Repository có sẵn launch wrapper cho
-vLLM, SGLang, TGI và LMDeploy; sidecar
+vLLM, SGLang, TGI, LMDeploy và llama.cpp; sidecar
 <code>deployment.json</code> tự sinh sẽ ghi rõ engine nào load trực tiếp và
 engine nào cần conversion.
 
@@ -219,11 +222,21 @@ scripts/serve/lmdeploy.sh ./out/qwen-w4-clc --server-port 23333
 
 # Transformers
 python examples/transformers_generate.py --model ./out/qwen-w4-clc
+
+# llama.cpp: convert một lần rồi chạy GGUF
+clc convert-gguf \
+  --source ./out/qwen-w4-clc \
+  --output ./out/qwen-w4-clc-Q4_K_M.gguf \
+  --llama-cpp /opt/llama.cpp \
+  --quant-type Q4_K_M
+scripts/serve/llama-cli.sh ./out/qwen-w4-clc-Q4_K_M.gguf -p "Explain CLC briefly."
 ~~~
 
 TensorRT-LLM có conversion/build path cho W4A16 AWQ/GPTQ. llama.cpp và Ollama
-dùng GGUF nên hiện được đánh dấu là conversion target, không phải direct
-consumer; việc re-quantize sang GGUF sẽ không còn giữ nguyên CLC lattice.
+dùng GGUF qua cầu nối ở trên. Đây là đường dẫn dequantize/re-quantize ở
+downstream: GGUF thuận tiện và tương thích rộng, nhưng không còn là integer
+lattice CLC nguyên bản. Hãy giữ thư mục AWQ/GPTQ/compressed-tensors gốc nếu
+cần deployment CLC bit-exact.
 
 ### Ma trận format
 
@@ -232,9 +245,26 @@ consumer; việc re-quantize sang GGUF sẽ không còn giữ nguyên CLC lattic
 | <code>awq</code> | 4-bit | <code>--quantization awq</code> | AWQ GEMM layout; input group và output packing phải phù hợp kernel |
 | <code>gptq</code> | 2/3/4/8-bit | <code>--quantization gptq</code> | GPTQ v2 metadata và int32 word packing |
 | <code>compressed-tensors</code> | 4/8-bit | tự phát hiện | WNA16 packed weights với shape và group metadata tường minh |
+| <code>GGUF</code> | F16 hoặc llama.cpp <code>Q*</code> | <code>llama-cli -m model.gguf</code> | conversion downstream; có thể có lattice lượng tử hóa thứ hai |
 
-Exporter hiện không ghi GGUF, EXL2 hoặc layout của runtime khác. Nếu cần các
-format đó, hãy dùng downstream converter hiểu đúng semantics của runtime đích.
+Ba dòng đầu là packed export trực tiếp từ `clc quantize`. GGUF là target
+conversion riêng:
+
+~~~bash
+clc convert-gguf --source ./out/qwen-w4-clc \
+  --output ./out/qwen-Q4_K_M.gguf \
+  --llama-cpp /opt/llama.cpp --quant-type Q4_K_M
+~~~
+
+Lệnh cũng nhận thư mục safetensors Hugging Face bình thường. Với thư mục CLC
+AWQ/GPTQ/compressed-tensors, tool giải mã `(q, s, z)` thành checkpoint HF
+float16 tạm thời rồi chạy tool chính thức của llama.cpp. Dùng
+`--quant-type NONE` (hoặc `F16`) để bỏ qua bước lượng tử hóa thứ hai. Tool ghi
+sidecar `<code>.gguf.clc.json` chứa command và cam kết rằng artifact này
+không bảo toàn lattice bit-exact.
+
+GGUF cần một checkout llama.cpp local có `convert_hf_to_gguf.py` và binary
+`llama-quantize`. Xem [phần GGUF trong hướng dẫn engine](docs/engines.md#llamacpp-and-ollama).
 
 ## Thiết kế bám sát paper
 
@@ -279,6 +309,37 @@ clc convert-legacy-awq \
 Thêm <code>--strict</code> nếu muốn dừng khi gặp tensor không hỗ trợ, thay vì
 giữ các tensor đó dưới dạng float carry-through weights.
 
+## Chuyển sang GGUF
+
+Để chạy bằng llama.cpp hoặc Ollama, cài một checkout llama.cpp có
+`convert_hf_to_gguf.py` và build binary `llama-quantize`:
+
+~~~bash
+cmake -S /opt/llama.cpp -B /opt/llama.cpp/build
+cmake --build /opt/llama.cpp/build --config Release -j
+python -m pip install -r /opt/llama.cpp/requirements.txt
+~~~
+
+Sau đó chuyển thư mục safetensors Hugging Face hoặc checkpoint packed CLC:
+
+~~~bash
+clc convert-gguf \
+  --source ./out/qwen-w4-clc \
+  --output ./out/qwen-w4-clc-Q4_K_M.gguf \
+  --llama-cpp /opt/llama.cpp \
+  --outtype f16 \
+  --quant-type Q4_K_M
+
+scripts/serve/llama-cli.sh ./out/qwen-w4-clc-Q4_K_M.gguf -p "Explain CLC briefly."
+~~~
+
+Mặc định `Q4_K_M` chạy thêm bước `llama-quantize`, nên đây là conversion
+dequantize/re-quantize và không giữ nguyên lattice CLC bit-exact. Dùng
+`--quant-type NONE` hoặc `F16` nếu chỉ muốn tạo GGUF float. Sidecar
+`<output>.gguf.clc.json` ghi lại provenance và các command đã chạy. Với Ollama,
+tạo `Modelfile` chứa `FROM /absolute/path/to/model-Q4_K_M.gguf`, rồi chạy
+`ollama create clc-q4 -f Modelfile` và `ollama run clc-q4`.
+
 ## Tái lập thí nghiệm
 
 Các wrapper trong <code>scripts/bash</code> hỗ trợ chạy raw, corrected và sweep
@@ -305,13 +366,13 @@ Các biến môi trường thường dùng gồm <code>MODEL</code>, <code>DEVIC
 pytest -q
 python -m compileall -q clc tests
 python -m clc.theory.selftest
-bash -n scripts/bash/common.sh scripts/bash/*/*.sh
+bash -n scripts/bash/common.sh scripts/bash/*/*.sh scripts/serve/*.sh
 ~~~
 
 Test suite bao phủ lattice invariants, correction guarantees trong paper,
 legacy equivalence, estimator, objective của từng quantizer, export
-round-trip, compressed-tensors interoperability, tied weights và end-to-end
-pipeline.
+round-trip, compressed-tensors interoperability, GGUF staging/command,
+tied weights và end-to-end pipeline.
 
 ## Cấu trúc repository
 
@@ -324,11 +385,11 @@ clc/
   pipeline.py      Block-wise quantization và error propagation
   quantizers/      RTN, AWQ, GPTQ và AdaRound
   baselines/       Classical bias correction
-  export/          AWQ, GPTQ, WNA16 packing và legacy conversion
+  export/          AWQ, GPTQ, WNA16 packing, GGUF bridge và legacy conversion
   theory/          Appendix E.1 verification và self-test
   eval/            Perplexity và lm-evaluation-harness
 scripts/bash/      Run và sweep wrappers để tái lập quantization
-scripts/serve/     Launch wrapper cho vLLM, SGLang, TGI và LMDeploy
+scripts/serve/     Launch wrapper cho vLLM, SGLang, TGI, LMDeploy và llama.cpp
 examples/          Ví dụ generation với Transformers
 docs/              Ghi chú interoperability theo engine
 tests/             Unit, regression, interoperability và theory tests

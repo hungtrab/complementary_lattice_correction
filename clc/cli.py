@@ -233,6 +233,30 @@ def run_legacy_conversion(args) -> int:
     return 0
 
 
+def run_gguf_conversion(args) -> int:
+    """CLI adapter for the explicit, downstream llama.cpp conversion path."""
+    from clc.export.gguf import convert_to_gguf
+
+    output = convert_to_gguf(
+        args.source,
+        args.output,
+        llama_cpp=args.llama_cpp,
+        convert_script=args.convert_script,
+        quantize_binary=args.quantize_bin,
+        outtype=args.outtype,
+        quant_type=args.quant_type,
+        threads=args.threads,
+        allow_requantize=args.allow_requantize,
+        leave_output_tensor=args.leave_output_tensor,
+        pure=args.pure,
+        imatrix=args.imatrix,
+        overwrite=args.force,
+    )
+    print(f"converted {args.source} to {output}")
+    print(f"provenance: {output}.clc.json")
+    return 0
+
+
 def run_engines(args) -> int:
     from clc.deployment import format_engine_table
 
@@ -307,6 +331,78 @@ def main(argv=None) -> int:
     )
 
     convert.set_defaults(func=run_legacy_conversion)
+
+    gguf = subparsers.add_parser(
+        "convert-gguf",
+        help="convert HF safetensors to GGUF with the official llama.cpp tools",
+    )
+    gguf.add_argument(
+        "--source",
+        required=True,
+        help="local HF/CLC safetensors directory or an HF Hub model id",
+    )
+    gguf.add_argument(
+        "--output",
+        required=True,
+        help="destination .gguf file (the suffix is appended when omitted)",
+    )
+    gguf.add_argument(
+        "--llama-cpp",
+        help="llama.cpp source/build root; also read from LLAMA_CPP_PATH",
+    )
+    gguf.add_argument(
+        "--convert-script",
+        help="explicit path to llama.cpp/convert_hf_to_gguf.py",
+    )
+    gguf.add_argument(
+        "--quantize-bin",
+        help="explicit path to the llama-quantize binary",
+    )
+    gguf.add_argument(
+        "--outtype",
+        default="f16",
+        choices=["auto", "f32", "f16", "bf16", "q8_0", "tq1_0", "tq2_0"],
+        help="intermediate type passed to convert_hf_to_gguf.py (default: f16)",
+    )
+    gguf.add_argument(
+        "--quant-type",
+        default="Q4_K_M",
+        metavar="TYPE",
+        help=(
+            "final llama.cpp quantization type, e.g. Q4_K_M, Q5_K_M, or Q8_0; "
+            "use NONE/F16/BF16/F32 to skip llama-quantize (default: Q4_K_M)"
+        ),
+    )
+    gguf.add_argument(
+        "--threads",
+        type=int,
+        help="optional thread count passed to llama-quantize",
+    )
+    gguf.add_argument(
+        "--allow-requantize",
+        action="store_true",
+        help="allow llama.cpp to requantize an already quantized intermediate",
+    )
+    gguf.add_argument(
+        "--leave-output-tensor",
+        action="store_true",
+        help="keep the output tensor at higher precision when llama.cpp supports it",
+    )
+    gguf.add_argument(
+        "--pure",
+        action="store_true",
+        help="force pure quantization in llama-quantize",
+    )
+    gguf.add_argument(
+        "--imatrix",
+        help="optional llama.cpp importance-matrix file",
+    )
+    gguf.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite an existing .gguf output",
+    )
+    gguf.set_defaults(func=run_gguf_conversion)
 
     engines = subparsers.add_parser(
         "engines",

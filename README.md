@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="assets/clc-banner.svg" alt="Complementary Lattice Correction compatible with vLLM, SGLang, TGI, LMDeploy, and Hugging Face Transformers" width="100%">
+  <img src="assets/clc-banner.svg" alt="Complementary Lattice Correction compatible with vLLM, SGLang, TGI, LMDeploy, Hugging Face Transformers, TensorRT-LLM, llama.cpp, and Ollama" width="100%">
 </p>
 
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+"></a>
   <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-2.x-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch 2.x"></a>
   <a href="https://github.com/vllm-project/vllm"><img src="https://img.shields.io/badge/vLLM-compatible-7C3AED?logo=nvidia&logoColor=white" alt="vLLM compatible"></a>
-  <a href="https://github.com/hungtrab/complementary_lattice_correction/actions"><img src="https://img.shields.io/badge/tests-157%20passing-16A34A" alt="157 tests passing"></a>
+  <a href="https://github.com/hungtrab/complementary_lattice_correction/actions"><img src="https://img.shields.io/badge/tests-172%20passing-16A34A" alt="172 tests passing"></a>
 </p>
 
 <p align="center">
@@ -78,6 +78,10 @@ served by the same low-bit kernel.
 - **Deployment-ready export.** Corrected lattices are packed directly as AWQ,
   GPTQ, or compressed-tensors WNA16 checkpoints. The exporter verifies codes,
   zero points, and float16 scales before writing.
+- **GGUF bridge.** `clc convert-gguf` converts standard Hugging Face
+  safetensors—and can dequantize this project's packed checkpoints to a
+  temporary HF directory—before invoking the official llama.cpp converter and
+  quantizer.
 - **Evaluation and analysis.** WikiText-2/C4 perplexity, lm-evaluation-harness
   tasks, Appendix E.1 theory verification, and synthetic self-tests are
   included.
@@ -177,7 +181,7 @@ clc inspect --checkpoint ./out/qwen-w4-clc --engine sglang
 
 Detailed engine-specific instructions are in
 [docs/engines.md](docs/engines.md). The repository includes launch wrappers
-for vLLM, SGLang, TGI, and LMDeploy; the generated
+for vLLM, SGLang, TGI, LMDeploy, and llama.cpp; the generated
 <code>deployment.json</code> sidecar records direct-load and
 conversion-required paths.
 
@@ -225,12 +229,22 @@ scripts/serve/lmdeploy.sh ./out/qwen-w4-clc --server-port 23333
 
 # Transformers
 python examples/transformers_generate.py --model ./out/qwen-w4-clc
+
+# llama.cpp: convert once, then run the GGUF directly
+clc convert-gguf \
+  --source ./out/qwen-w4-clc \
+  --output ./out/qwen-w4-clc-Q4_K_M.gguf \
+  --llama-cpp /opt/llama.cpp \
+  --quant-type Q4_K_M
+scripts/serve/llama-cli.sh ./out/qwen-w4-clc-Q4_K_M.gguf -p "Explain CLC briefly."
 ~~~
 
 TensorRT-LLM has a conversion/build path for W4A16 AWQ/GPTQ. llama.cpp and
-Ollama require GGUF and are intentionally marked as conversion targets rather
-than direct consumers; re-quantizing into GGUF would no longer be the exact
-CLC lattice exported here.
+Ollama use the GGUF bridge above. The bridge is intentionally a downstream
+dequantize/re-quantize path: the resulting GGUF is convenient and widely
+supported, but it is not the exact CLC integer lattice. The original packed
+AWQ/GPTQ/compressed-tensors directory remains the reference artifact when
+bit-exact CLC deployment matters.
 
 ### Format matrix
 
@@ -239,10 +253,28 @@ CLC lattice exported here.
 | <code>awq</code> | 4-bit | <code>--quantization awq</code> | AWQ GEMM layout; input groups and output packing must fit the kernel |
 | <code>gptq</code> | 2/3/4/8-bit | <code>--quantization gptq</code> | GPTQ v2 metadata and int32 word packing |
 | <code>compressed-tensors</code> | 4/8-bit | auto-detected | WNA16 packed weights with explicit shape and group metadata |
+| <code>GGUF</code> | F16 or llama.cpp <code>Q*</code> | <code>llama-cli -m model.gguf</code> | downstream conversion; a second quantization lattice may be introduced |
 
-The packed exporter is format-specific and intentionally does not emit GGUF,
-EXL2, or other unrelated layouts. Convert to those formats only with a
-downstream tool that understands the target runtime's semantics.
+The first three rows are direct packed exports from `clc quantize`. GGUF is a
+separate conversion target:
+
+~~~bash
+clc convert-gguf --source ./out/qwen-w4-clc \
+  --output ./out/qwen-Q4_K_M.gguf \
+  --llama-cpp /opt/llama.cpp --quant-type Q4_K_M
+~~~
+
+The command also accepts an ordinary Hugging Face safetensors directory. For a
+CLC AWQ/GPTQ/compressed-tensors directory it dequantizes packed `(q, s, z)` to
+a temporary float16 HF checkpoint, then runs the official llama.cpp tools.
+Use `--quant-type NONE` (or `F16`) to skip the second quantization step. The
+converter writes a `<code>.gguf.clc.json</code>` sidecar with the exact command
+and the non-lattice-preserving guarantee.
+
+GGUF conversion requires a local llama.cpp checkout with
+`convert_hf_to_gguf.py` and a built `llama-quantize` binary. See the detailed
+[GGUF section](docs/engines.md#llamacpp-and-ollama) for build and Ollama
+instructions.
 
 ## Command-line reference
 
@@ -250,6 +282,12 @@ The main command is:
 
 ~~~text
 clc quantize [OPTIONS]
+~~~
+
+The GGUF bridge is:
+
+~~~text
+clc convert-gguf [OPTIONS]
 ~~~
 
 Important options:
@@ -268,6 +306,11 @@ Important options:
 | <code>--perplexity</code> | optional | Evaluate WikiText-2 and/or C4 |
 | <code>--lm-eval</code> | optional task list | Run lm-evaluation-harness |
 | <code>--export-format</code> | <code>awq</code> | Select the packed deployment format |
+
+`convert-gguf` accepts `--source`, `--output`, `--llama-cpp`, `--outtype`,
+`--quant-type`, `--threads`, `--imatrix`, and llama.cpp's
+`--allow-requantize`/`--pure`/`--leave-output-tensor` controls. Run
+`clc convert-gguf --help` for the installed version's complete list.
 
 See all flags with:
 
@@ -383,11 +426,11 @@ clc/
   pipeline.py      Block-wise quantization and error propagation
   quantizers/      RTN, AWQ, GPTQ, and AdaRound
   baselines/       Classical bias correction
-  export/          AWQ, GPTQ, WNA16 packing, and legacy conversion
+  export/          AWQ, GPTQ, WNA16 packing, GGUF bridge, and legacy conversion
   theory/          Appendix E.1 verification and self-test
   eval/            Perplexity and lm-evaluation-harness
 scripts/bash/      Reproducible quantization run and sweep wrappers
-scripts/serve/     vLLM, SGLang, TGI, and LMDeploy launch wrappers
+scripts/serve/     vLLM, SGLang, TGI, LMDeploy, and llama.cpp launch wrappers
 examples/          Transformers generation example
 docs/              Engine interoperability notes
 tests/             Unit, regression, interoperability, and theory tests
@@ -399,13 +442,13 @@ tests/             Unit, regression, interoperability, and theory tests
 pytest -q
 python -m compileall -q clc tests
 python -m clc.theory.selftest
-bash -n scripts/bash/common.sh scripts/bash/*/*.sh
+bash -n scripts/bash/common.sh scripts/bash/*/*.sh scripts/serve/*.sh
 ~~~
 
 The test suite covers lattice invariants, the paper's correction guarantees,
 legacy equivalence, estimator behavior, quantizer objectives, export
-round-trips, compressed-tensors interoperability, tied weights, and
-end-to-end pipeline behavior.
+round-trips, compressed-tensors interoperability, GGUF staging/command
+construction, tied weights, and end-to-end pipeline behavior.
 
 ## Relationship to the original checkouts
 

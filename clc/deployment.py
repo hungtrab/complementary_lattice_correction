@@ -117,9 +117,16 @@ ENGINE_SPECS: tuple[EngineSpec, ...] = (
         name="llama.cpp",
         label="llama.cpp / Ollama",
         direct_formats={},
-        conversion_formats={},
+        conversion_formats={
+            "awq": (4,),
+            "gptq": (2, 3, 4, 8),
+            "compressed-tensors": (4, 8),
+        },
         documentation="https://github.com/ggml-org/llama.cpp",
-        notes="These runtimes require GGUF. A direct GGUF writer is intentionally not provided because re-quantization changes the CLC lattice.",
+        notes=(
+            "Use clc convert-gguf with llama.cpp's official converter. This is "
+            "a dequantize/re-quantize path, so it is not lattice-preserving."
+        ),
     ),
 )
 
