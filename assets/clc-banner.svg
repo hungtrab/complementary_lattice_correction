@@ -1,0 +1,72 @@
+<svg width="1400" height="360" viewBox="0 0 1400 360" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Complementary Lattice Correction</title>
+  <desc id="desc">A dark, colorful banner for a paper-aligned low-bit language-model quantization project.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1400" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#080D18"/>
+      <stop offset="0.52" stop-color="#11162B"/>
+      <stop offset="1" stop-color="#081D28"/>
+    </linearGradient>
+    <linearGradient id="titleGradient" x1="330" y1="112" x2="1060" y2="218" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8BE9FD"/>
+      <stop offset="0.48" stop-color="#C8A6FF"/>
+      <stop offset="1" stop-color="#FF9ACB"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="220" y1="0" x2="1220" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="0.5" stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#F472B6"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+      <path d="M0 0H48M0 0V48" stroke="#7DD3FC" stroke-opacity="0.08" stroke-width="1"/>
+    </pattern>
+    <clipPath id="rounded">
+      <rect width="1400" height="360" rx="24"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#rounded)">
+    <rect width="1400" height="360" fill="url(#bg)"/>
+    <rect width="1400" height="360" fill="url(#grid)"/>
+    <circle cx="1270" cy="30" r="220" fill="#7C3AED" fill-opacity="0.12"/>
+    <circle cx="80" cy="350" r="250" fill="#06B6D4" fill-opacity="0.11"/>
+
+    <g opacity="0.72" stroke="url(#accent)" stroke-width="2">
+      <path d="M-70 272L210 110L480 270L760 102L1040 260L1470 22"/>
+      <path d="M-50 334L230 172L500 332L780 164L1060 322L1490 84"/>
+      <path d="M120 82L330 204L540 82L750 204L960 82L1170 204L1380 82"/>
+    </g>
+    <g fill="#E0F2FE" filter="url(#glow)">
+      <circle cx="210" cy="110" r="4"/>
+      <circle cx="480" cy="270" r="4"/>
+      <circle cx="760" cy="102" r="4"/>
+      <circle cx="1040" cy="260" r="4"/>
+      <circle cx="330" cy="204" r="4"/>
+      <circle cx="750" cy="204" r="4"/>
+      <circle cx="1170" cy="204" r="4"/>
+    </g>
+
+    <rect x="255" y="48" width="890" height="264" rx="28" fill="#070B14" fill-opacity="0.55" stroke="#C4B5FD" stroke-opacity="0.34"/>
+    <text x="700" y="120" text-anchor="middle" fill="#F8FAFC" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="5">PAPER-ALIGNED POST-TRAINING QUANTIZATION</text>
+    <text x="700" y="185" text-anchor="middle" fill="url(#titleGradient)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="46" font-weight="800">Complementary Lattice Correction</text>
+    <text x="700" y="224" text-anchor="middle" fill="#CBD5E1" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="19">Correct the integer lattice • preserve the inference graph • deploy the result</text>
+
+    <g font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="700">
+      <rect x="455" y="252" width="94" height="34" rx="17" fill="#0E7490" fill-opacity="0.85"/>
+      <text x="502" y="274" text-anchor="middle" fill="#ECFEFF">AWQ</text>
+      <rect x="563" y="252" width="106" height="34" rx="17" fill="#6D28D9" fill-opacity="0.85"/>
+      <text x="616" y="274" text-anchor="middle" fill="#F5F3FF">GPTQ</text>
+      <rect x="683" y="252" width="150" height="34" rx="17" fill="#BE185D" fill-opacity="0.82"/>
+      <text x="758" y="274" text-anchor="middle" fill="#FDF2F8">WNA16</text>
+      <rect x="847" y="252" width="98" height="34" rx="17" fill="#15803D" fill-opacity="0.82"/>
+      <text x="896" y="274" text-anchor="middle" fill="#F0FDF4">vLLM</text>
+    </g>
+  </g>
+</svg>

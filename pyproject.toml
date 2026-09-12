@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "complementary-lattice-correction"
+version = "0.1.0"
+description = "Complementary Lattice Correction (CLC): budget-constrained adjacent-level correction for post-training quantization"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "transformers>=4.45",
+    "datasets",
+    "safetensors",
+    "tqdm",
+]
+
+# torch is intentionally NOT pinned here: install the build matching your CUDA.
+
+[project.optional-dependencies]
+eval = ["lm-eval>=0.4.9", "wandb", "python-dotenv"]
+export = ["accelerate", "compressed-tensors>=0.13"]
+dev = ["pytest"]
+
+[project.scripts]
+clc = "clc.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["clc*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
