@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/clc-banner.svg" alt="Complementary Lattice Correction" width="100%">
+  <img src="assets/clc-banner.svg" alt="Complementary Lattice Correction compatible with vLLM, SGLang, TGI, LMDeploy, and Hugging Face Transformers" width="100%">
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="README.vi.md">Tiếng Việt</a>
+  <a href="README.vi.md">🇻🇳 Tiếng Việt</a>
   &nbsp;•&nbsp;
   <a href="#quick-start">Quick start</a>
   &nbsp;•&nbsp;
